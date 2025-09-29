@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     const raw = await res.json();
 
     // Normalize to entries of [criminalId, faceRefs[]] plus optional metadata
-    type Normalized = { id: string; faceRefs: BackendFaceRef[]; name?: string; policeStation?: string; avatarUrl?: string };
+type Normalized = { id: string; faceRefs: BackendFaceRef[]; name?: string; policeStation?: string; avatarUrl?: string; age?: number };
     const normalized: Normalized[] = [];
 
     if (Array.isArray(raw)) {
@@ -48,6 +48,7 @@ export async function GET(request: Request) {
             name: cData?.criminal_name,
             policeStation: cData?.criminal_ps,
             avatarUrl: cData?.criminal_img,
+            age: typeof cData?.criminal_age === "number" ? cData?.criminal_age : undefined,
           });
         }
       }
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
 
     // For each criminal, parse faceRefs which might be strings containing JSON like '{"f_id": "a", "score": 0.3}'
     const logs = await Promise.all(
-      normalized.map(async ({ id, faceRefs, name, policeStation, avatarUrl }) => {
+      normalized.map(async ({ id, faceRefs, name, policeStation, avatarUrl, age }) => {
         try {
           const parsed = faceRefs
             .map((ref) => {
@@ -104,6 +105,7 @@ export async function GET(request: Request) {
             confidence: maxScore || threshold, // fallback to slider threshold if no score
             images,
             avatarUrl: avatarUrl || images[0] || undefined,
+            age,
           };
         } catch {
           return {
@@ -114,6 +116,7 @@ export async function GET(request: Request) {
             confidence: threshold,
             images: [],
             avatarUrl,
+            age,
           };
         }
       })

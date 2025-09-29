@@ -2,6 +2,7 @@ export type LogItem = {
   id: string;
   name: string;
   policeStation: string;
+  age?: number;
   matches: number;
   confidence: number; // 0..1
   images: string[];

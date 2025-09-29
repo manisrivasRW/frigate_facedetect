@@ -7,6 +7,7 @@ import { fetchLogs, type LogItem } from "@/lib/api";
 export default function Home() {
   const [threshold, setThreshold] = useState(0.6);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState<Record<string, number>>({});
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,9 +87,10 @@ export default function Home() {
                 className="glass neon-border rounded-xl p-4 md:p-5 transition-shadow hover:shadow-[0_0_20px_rgba(0,209,255,0.2)]"
               >
                 <button
-                  onClick={() =>
-                    setExpandedId((prev) => (prev === log.id ? null : log.id))
-                  }
+                  onClick={() => {
+                    setExpandedId(log.id);
+                    setModalOpen(true);
+                  }}
                   className="w-full text-left"
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -120,57 +122,7 @@ export default function Home() {
                   </div>
                 </button>
 
-                {isExpanded && (
-                  <div className="mt-4 border-t border-[#0b2d4a] pt-4">
-                    <div className="relative overflow-hidden rounded-lg bg-black/40">
-                      <div className="flex items-center justify-center h-48 sm:h-56 md:h-64 lg:h-72">
-                        <Image
-                          src={log.images[index]}
-                          alt={`${log.name} ${index + 1}`}
-                          width={240}
-                          height={240}
-                          sizes="(max-width: 640px) 160px, (max-width: 768px) 200px, 240px"
-                          className="object-contain max-h-full"
-                        />
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-between px-1 sm:px-2">
-                        <button
-                          onClick={() => onPrev(log.id, total)}
-                          className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
-                          aria-label="Previous image"
-                        >
-                          ‹
-                        </button>
-                        <button
-                          onClick={() => onNext(log.id, total)}
-                          className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
-                          aria-label="Next image"
-                        >
-                          ›
-                        </button>
-                      </div>
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2">
-                        {log.images.map((_, i) => (
-                          <span
-                            key={i}
-                            className={`h-1.5 w-5 sm:w-6 rounded-full ${
-                              i === index ? "bg-[#00d1ff]" : "bg-[#16324a]"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex justify-end">
-                      <button
-                        onClick={() => setExpandedId(null)}
-                        className="px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-[#0ea5e9] to-[#00d1ff] text-black font-semibold tracking-wide hover:opacity-90"
-                      >
-                        Collapse
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Inline expanded panel removed in favor of modal */}
               </div>
             );
           })}
@@ -182,6 +134,89 @@ export default function Home() {
           )}
         </div>
       </div>
+      {/* Modal glass card */}
+      {modalOpen && expandedId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" aria-modal="true" role="dialog">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setModalOpen(false)} />
+          <div className="relative glass neon-border rounded-2xl max-w-5xl w-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+            <button
+              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
+              onClick={() => setModalOpen(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            {(() => {
+              const log = logs.find(l => l.id === expandedId)!;
+              const index = slideIndex[log.id] ?? 0;
+              const total = log.images.length;
+              return (
+                <>
+                  <div className="md:col-span-2 flex flex-col items-center gap-4">
+                    <div className="h-28 w-28 rounded-full overflow-hidden bg-gradient-to-br from-[#0ea5e9] to-[#00d1ff]">
+                      {log.avatarUrl ? (
+                        <Image src={log.avatarUrl as string} alt={log.name} width={112} height={112} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full grid place-items-center text-black text-3xl font-bold">{log.name.charAt(0)}</div>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xl font-semibold text-[#e6f3ff]">{log.name}</div>
+                      <div className="text-sm text-[#9ad7ff]/80">Age: {log.age ?? "-"}</div>
+                      <div className="text-xs text-[#9ad7ff]/60 mt-1">Station: {log.policeStation}</div>
+                    </div>
+                  </div>
+                  <div className="md:col-span-3">
+                    <div className="relative overflow-hidden rounded-xl bg-black/40">
+                      <div className="flex items-center justify-center h-56 sm:h-64 md:h-72">
+                        {total > 0 ? (
+                          <Image
+                            src={log.images[index]}
+                            alt={`${log.name} ${index + 1}`}
+                            width={320}
+                            height={320}
+                            className="object-contain max-h-full"
+                          />
+                        ) : (
+                          <div className="text-center text-[#9ad7ff]/70 p-6">No images available</div>
+                        )}
+                      </div>
+                      {total > 0 && (
+                        <>
+                          <div className="absolute inset-0 flex items-center justify-between px-2">
+                            <button
+                              onClick={() => onPrev(log.id, total)}
+                              className="h-10 w-10 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
+                              aria-label="Previous image"
+                            >
+                              ‹
+                            </button>
+                            <button
+                              onClick={() => onNext(log.id, total)}
+                              className="h-10 w-10 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
+                              aria-label="Next image"
+                            >
+                              ›
+                            </button>
+                          </div>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2">
+                            {log.images.map((_, i) => (
+                              <span
+                                key={i}
+                                className={`h-1.5 w-6 rounded-full ${i === index ? "bg-[#00d1ff]" : "bg-[#16324a]"}`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
