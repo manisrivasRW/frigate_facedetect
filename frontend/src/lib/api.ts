@@ -5,6 +5,7 @@ export type LogItem = {
   matches: number;
   confidence: number; // 0..1
   images: string[];
+  avatarUrl?: string;
 };
 
 const MOCK_LOGS: LogItem[] = [

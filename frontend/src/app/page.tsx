@@ -93,8 +93,12 @@ export default function Home() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-[#0ea5e9] to-[#00d1ff] flex items-center justify-center text-black font-bold flex-shrink-0">
-                        {log.name.charAt(0)}
+                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-[#0ea5e9] to-[#00d1ff] overflow-hidden flex items-center justify-center text-black font-bold flex-shrink-0">
+                        {log.avatarUrl ? (
+                          <Image src={log.avatarUrl} alt={log.name} width={40} height={40} className="h-full w-full object-cover" />
+                        ) : (
+                          <span>{log.name.charAt(0)}</span>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="font-semibold text-[#e6f3ff] truncate max-w-[60vw] sm:max-w-none">
