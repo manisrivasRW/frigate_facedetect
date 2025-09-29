@@ -14,6 +14,8 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    // Clear current logs to avoid showing stale content while loading
+    setLogs([]);
     setLoading(true);
     fetchLogs(threshold)
       .then((data) => {
@@ -72,12 +74,13 @@ export default function Home() {
         </div>
 
         <div className="mt-6 space-y-4">
-          {loading && (
-            <div className="glass neon-border rounded-xl p-4 text-center text-[#9ad7ff]/80">
-              Loading...
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="relative">
+                <div className="h-12 w-12 rounded-full border-4 border-[#00d1ff] border-t-transparent animate-spin" />
+              </div>
             </div>
-          )}
-          {filteredLogs.map((log) => {
+          ) : filteredLogs.map((log) => {
             const isExpanded = expandedId === log.id;
             const index = slideIndex[log.id] ?? 0;
             const total = log.images.length;
@@ -137,10 +140,10 @@ export default function Home() {
       {/* Modal glass card */}
       {modalOpen && expandedId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" aria-modal="true" role="dialog">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setModalOpen(false)} />
-          <div className="relative glass neon-border rounded-2xl max-w-5xl w-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="absolute inset-0 bg-black/70 z-10" onClick={() => setModalOpen(false)} />
+          <div className="relative glass neon-border rounded-2xl max-w-5xl w-full p-4 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-6 z-20">
             <button
-              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center"
+              className="absolute top-3 right-3 h-9 w-9 rounded-full bg-[#0b132b]/70 hover:bg-[#0b132b]/90 text-[#9ad7ff] grid place-items-center z-30"
               onClick={() => setModalOpen(false)}
               aria-label="Close"
             >
