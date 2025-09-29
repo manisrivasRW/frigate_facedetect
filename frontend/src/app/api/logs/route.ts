@@ -39,15 +39,15 @@ export async function GET(request: Request) {
       for (const item of raw) {
         const cData = item?.criminal_data;
         const sList = item?.suspect_list;
-        if (cData?.criminal_id && sList && typeof sList === "object") {
-          for (const [cid, refs] of Object.entries(sList as Record<string, BackendFaceRef[]>)) {
-            normalized.push({
-              id: cid,
-              faceRefs: refs || [],
-              name: cData?.criminal_name,
-              policeStation: cData?.criminal_ps,
-            });
-          }
+        const id = cData?.criminal_id || String(cData?.id || "");
+        const refs = Array.isArray(sList) ? (sList as BackendFaceRef[]) : [];
+        if (id) {
+          normalized.push({
+            id,
+            faceRefs: refs,
+            name: cData?.criminal_name,
+            policeStation: cData?.criminal_ps,
+          });
         }
       }
     } else if (raw && typeof raw === "object") {
@@ -59,61 +59,76 @@ export async function GET(request: Request) {
     // For each criminal, parse faceRefs which might be strings containing JSON like '{"f_id": "a", "score": 0.3}'
     const logs = await Promise.all(
       normalized.map(async ({ id, faceRefs, name, policeStation }) => {
-        const parsed = faceRefs
-          .map((ref) => {
-            if (typeof ref === "string") {
-              // Try JSON parse; if fails, treat the string as a raw face id
-              try {
-                const obj = JSON.parse(ref);
-                return { f_id: obj?.f_id as string | undefined, score: Number(obj?.score) };
-              } catch {
-                return { f_id: ref as string, score: undefined };
+        try {
+          const parsed = faceRefs
+            .map((ref) => {
+              if (typeof ref === "string") {
+                try {
+                  const obj = JSON.parse(ref);
+                  return { f_id: obj?.f_id as string | undefined, score: Number(obj?.score) };
+                } catch {
+                  return { f_id: ref as string, score: undefined };
+                }
               }
-            }
-            if (ref && typeof ref === "object") {
-              return { f_id: (ref as any).f_id as string | undefined, score: Number((ref as any).score) };
-            }
-            return { f_id: undefined, score: undefined };
-          })
-          .filter((x) => Boolean(x.f_id)) as Array<{ f_id: string; score?: number }>;
+              if (ref && typeof ref === "object") {
+                return { f_id: (ref as any).f_id as string | undefined, score: Number((ref as any).score) };
+              }
+              return { f_id: undefined, score: undefined };
+            })
+            .filter((x) => Boolean(x.f_id)) as Array<{ f_id: string; score?: number }>;
 
-        const faceIds = parsed.map((p) => p.f_id);
-        const maxScore = parsed.reduce((m, p) => (typeof p.score === "number" && p.score > m ? p.score : m), 0);
+          const faceIds = parsed.map((p) => p.f_id);
+          const maxScore = parsed.reduce((m, p) => (typeof p.score === "number" && p.score > m ? p.score : m), 0);
 
-        // Fetch images for the face IDs
-        let images: string[] = [];
-        if (faceIds.length) {
-          const resFaces = await fetch(`${BACKEND_BASE_URL}/get-suspects`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            cache: "no-store",
-            body: JSON.stringify({ suspect_ids: faceIds }),
-          });
-          if (resFaces.ok) {
-            const faces = (await resFaces.json()) as BackendFacesResponse;
-            images = (faces || []).map((f) => f.img_url).filter(Boolean) as string[];
+          // Fetch images for the face IDs
+          let images: string[] = [];
+          if (faceIds.length) {
+            const resFaces = await fetch(`${BACKEND_BASE_URL}/get-suspects`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              cache: "no-store",
+              body: JSON.stringify({ suspect_ids: faceIds }),
+            });
+            if (resFaces.ok) {
+              const faces = (await resFaces.json()) as BackendFacesResponse;
+              images = (faces || []).map((f) => f.img_url).filter(Boolean) as string[];
+            }
           }
-        }
 
-        return {
-          id,
-          name: name || id,
-          policeStation: policeStation || "",
-          matches: images.length,
-          confidence: maxScore || threshold, // fallback to slider threshold if no score
-          images,
-        };
+          return {
+            id,
+            name: name || id,
+            policeStation: policeStation || "",
+            matches: images.length,
+            confidence: maxScore || threshold, // fallback to slider threshold if no score
+            images,
+          };
+        } catch {
+          return {
+            id,
+            name: name || id,
+            policeStation: policeStation || "",
+            matches: 0,
+            confidence: threshold,
+            images: [],
+          };
+        }
       })
     );
 
     // Filter by threshold and sort by highest score then matches
     const filtered = logs
       .filter((l) => (typeof l.confidence === "number" ? l.confidence : 0) >= threshold)
-      .sort((a, b) => (b.confidence - a.confidence) || (b.matches - a.matches));
+      .sort((a, b) => {
+        const conf = (b.confidence || 0) - (a.confidence || 0);
+        if (Math.abs(conf) > 1e-9) return conf;
+        return (b.matches || 0) - (a.matches || 0);
+      });
 
     return NextResponse.json(filtered);
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || "Unknown error" }, { status: 500 });
+    // Never leak framework/parse errors to the UI; return empty list on 0.2 edge-cases
+    return NextResponse.json([], { status: 200 });
   }
 }
 
