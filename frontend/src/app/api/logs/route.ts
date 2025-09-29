@@ -79,23 +79,29 @@ type Normalized = { id: string; faceRefs: BackendFaceRef[]; name?: string; polic
             })
             .filter((x) => Boolean(x.f_id)) as Array<{ f_id: string; score?: number }>;
 
-          const faceIds = parsed.map((p) => p.f_id);
-          const maxScore = parsed.reduce((m, p) => (typeof p.score === "number" && p.score > m ? p.score : m), 0);
+        const faceIds = parsed.map((p) => p.f_id);
+        const maxScore = parsed.reduce((m, p) => (typeof p.score === "number" && p.score > m ? p.score : m), 0);
 
-          // Fetch images for the face IDs
-          let images: string[] = [];
-          if (faceIds.length) {
-            const resFaces = await fetch(`${BACKEND_BASE_URL}/get-suspects`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              cache: "no-store",
-              body: JSON.stringify({ suspect_ids: faceIds }),
-            });
-            if (resFaces.ok) {
-              const faces = (await resFaces.json()) as BackendFacesResponse;
-              images = (faces || []).map((f) => f.img_url).filter(Boolean) as string[];
-            }
+        // Fetch images for the face IDs and match with scores
+        let images: Array<{ url: string; score: number }> = [];
+        if (faceIds.length) {
+          const resFaces = await fetch(`${BACKEND_BASE_URL}/get-suspects`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            cache: "no-store",
+            body: JSON.stringify({ suspect_ids: faceIds }),
+          });
+          if (resFaces.ok) {
+            const faces = (await resFaces.json()) as BackendFacesResponse;
+            // Match face URLs with their scores
+            images = (faces || [])
+              .map((f, index) => ({
+                url: f.img_url || "",
+                score: parsed[index]?.score || 0
+              }))
+              .filter((img) => Boolean(img.url));
           }
+        }
 
           return {
             id,

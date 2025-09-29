@@ -5,36 +5,11 @@ export type LogItem = {
   age?: number;
   matches: number;
   confidence: number; // 0..1
-  images: string[];
+  images: Array<{ url: string; score: number }>;
   avatarUrl?: string;
 };
 
-const MOCK_LOGS: LogItem[] = [
-  {
-    id: "1",
-    name: "John Carter",
-    policeStation: "PS-12 Alpha",
-    matches: 3,
-    confidence: 0.92,
-    images: ["/next.svg", "/vercel.svg", "/globe.svg"],
-  },
-  {
-    id: "2",
-    name: "Sarah Connor",
-    policeStation: "PS-7 Beta",
-    matches: 1,
-    confidence: 0.45,
-    images: ["/window.svg", "/file.svg"],
-  },
-  {
-    id: "3",
-    name: "Neo Anderson",
-    policeStation: "PS-3 Zion",
-    matches: 2,
-    confidence: 0.78,
-    images: ["/vercel.svg", "/next.svg"],
-  },
-];
+// Mock data removed - using real API calls
 
 // Calls FastAPI backend to get suspects above the threshold and their face images.
 // Backend contract (server.py):
@@ -54,9 +29,9 @@ export async function fetchLogs(threshold: number): Promise<LogItem[]> {
     const data = (await res.json()) as LogItem[];
     return data;
   } catch (err) {
-    // Mock fallback until backend is fully connected
-    await new Promise((r) => setTimeout(r, 200));
-    return MOCK_LOGS.filter((l) => l.confidence >= threshold);
+    // No fallback - return empty array if backend is not available
+    console.error("Backend not available:", err);
+    return [];
   }
 }
 

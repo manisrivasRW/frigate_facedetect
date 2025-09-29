@@ -37,3 +37,18 @@ body {
   background: linear-gradient(180deg, rgba(17, 25, 40, 0.75), rgba(17, 25, 40, 0.35));
   backdrop-filter: blur(12px);
 }
+
+@keyframes scan {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(300px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
