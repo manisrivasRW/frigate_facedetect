@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #c7e0ff;
+  --accent: #00d1ff;
+  --accent-2: #5b8cff;
+  --card: #0b132b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-orbitron);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #c7e0ff;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-display), var(--font-geist-sans), system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.neon-border {
+  box-shadow: 0 0 0 1px #0b2d4a, 0 0 10px 2px rgba(0, 209, 255, 0.25), inset 0 0 20px rgba(0, 49, 73, 0.4);
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(17, 25, 40, 0.75), rgba(17, 25, 40, 0.35));
+  backdrop-filter: blur(12px);
+}
