@@ -31,6 +31,26 @@ export default function Home() {
 
   const filteredLogs = useMemo(() => logs, [logs]);
 
+  const formatIST = (unixSeconds?: number) => {
+    if (typeof unixSeconds !== "number") return "";
+    try {
+      return (
+        new Date(unixSeconds * 1000).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }) + " IST"
+      );
+    } catch {
+      return new Date(unixSeconds * 1000).toString();
+    }
+  };
+
   const onNext = (id: string, total: number) => {
     setSlideIndex((prev) => {
       const current = prev[id] ?? 0;
@@ -270,6 +290,11 @@ export default function Home() {
                         <div className="text-lg font-semibold text-[#00d1ff]">
                           Match Score: {(log.images[index].score * 100).toFixed(1)}%
                         </div>
+                        {typeof log.images[index].start_time !== "undefined" && (
+                          <div className="text-xs text-[#9ad7ff]/70 mt-1">
+                            Captured at: {formatIST(log.images[index].start_time)}
+                          </div>
+                        )}
                         <div className="text-sm text-[#9ad7ff]/70 mt-1">
                           Image {index + 1} of {total}
                         </div>

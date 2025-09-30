@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || "http://localhost:8000";
 
 type BackendFaceRef = string | { f_id?: string; score?: number } | Record<string, any>;
-type BackendFacesResponse = Array<{ img_url?: string }>;
+type BackendFacesResponse = Array<{ img_url?: string; start_time?: number }>; // include start_time if backend provides it
 
 // GET /api/logs?threshold=0.6
 export async function GET(request: Request) {
@@ -83,7 +83,7 @@ type Normalized = { id: string; faceRefs: BackendFaceRef[]; name?: string; polic
         const maxScore = parsed.reduce((m, p) => (typeof p.score === "number" && p.score > m ? p.score : m), 0);
 
         // Fetch images for the face IDs and match with scores
-        let images: Array<{ url: string; score: number }> = [];
+        let images: Array<{ url: string; score: number; start_time?: number }> = [];
         if (faceIds.length) {
           const resFaces = await fetch(`${BACKEND_BASE_URL}/get-suspects`, {
             method: "POST",
@@ -97,7 +97,8 @@ type Normalized = { id: string; faceRefs: BackendFaceRef[]; name?: string; polic
             images = (faces || [])
               .map((f, index) => ({
                 url: f.img_url || "",
-                score: parsed[index]?.score || 0
+                score: parsed[index]?.score || 0,
+                start_time: f.start_time
               }))
               .filter((img) => Boolean(img.url));
           }

@@ -5,7 +5,7 @@ export type LogItem = {
   age?: number;
   matches: number;
   confidence: number; // 0..1
-  images: Array<{ url: string; score: number }>;
+  images: Array<{ url: string; score: number; start_time?: number }>;
   avatarUrl?: string;
 };
 
