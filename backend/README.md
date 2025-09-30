@@ -1,6 +1,4 @@
-# FastAPI Project
-
-Criminal face detection 
+# Criminal Face Detection -> Backend
 
 ## Quick Start
 
