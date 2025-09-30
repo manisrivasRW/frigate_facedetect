@@ -39,3 +39,5 @@ next-env.d.ts
 /backend/__pycache__
 /backend/Nagpur_embeddings
 /backend/insert_main.py
+/backend/test.py
+/backend/h.py
