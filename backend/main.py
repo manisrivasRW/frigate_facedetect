@@ -57,50 +57,41 @@ print("Connected to the database.")
 
 def load_embeddings_from_db(json_paths=None):
     global stored_embeddings, stored_labels
-    if json_paths is None:
-        # default: load both
-        json_paths = [
-            "Nagpur_embeddings/embeddings.json"
-        ]
-
     try:
-        #print("In load_embeddings_from_json")
         stored_embeddings = []
         stored_labels = []
+        cur.execute("SELECT id, criminal_id, name, father_name, age, address, img_url, embedding FROM public.nagpur_criminals")
+        rows = cur.fetchall()
+        print(f"Loaded {len(rows)} records from DB")
 
-        for path in json_paths:
-            with open(path, "r") as f:
-                data = json.load(f)
+        for row in rows:
+            id_, criminal_id, name, father_name, age, address, img_url, embedding = row
 
-            print(f"Loaded {len(data)} records from {path}")
+            # Convert embedding (Postgres double precision[]) to numpy array
+            embedding_array = np.array(embedding, dtype=np.float32)
+            stored_embeddings.append(embedding_array)
 
-            for record in data:
-                # embedding stored as list, convert back to numpy array
-                embedding = np.array(record["embedding"], dtype=np.float32)
-                stored_embeddings.append(embedding)
-
-                info = {
-                    "id": record.get("id"),
-                    "criminal_id": record.get("criminal_id"),
-                    "name": record.get("name"),
-                    "father_name": record.get("father_name"),
-                    "age": record.get("age"),
-                    "address": record.get("address"),
-                    "police_station": record.get("police_station"),
-                    "crime_and_section": record.get("crime_and_section"),
-                    "head_of_crime": record.get("head_of_crime"),
-                    "arrested_date": record.get("arrested_date"),
-                    "img_url": record.get("img_url")
-                }
-                stored_labels.append(info)
+            info = {
+                "id": id_,
+                "criminal_id": criminal_id,
+                "name": name,
+                "father_name": father_name,
+                "age": age,
+                "address": address,
+                "img_url": img_url
+            }
+            stored_labels.append(info)
 
         if stored_embeddings:
             stored_embeddings = np.stack(stored_embeddings)
         else:
-            stored_embeddings = np.zeros((0, 512))  
+            stored_embeddings = np.zeros((0, 512))  # adjust dim if needed
+
+        cur.close()
+        conn.close()
 
     except Exception as e:
-        print(str(e))
+        print("Error:", str(e))
 
 load_embeddings_from_db()
 print("Loaded embeddings from DB")
@@ -185,7 +176,6 @@ def get_faces(data,snapshot_url):
         return None
     
 def save_face(img_url,event_id,camera,start_time,end_time):
-    print("In save face")
     uniq_id = str(uuid.uuid4())[:16]
     f_id = f"{event_id}_{uniq_id}"
 
@@ -202,7 +192,6 @@ def save_face(img_url,event_id,camera,start_time,end_time):
     return f_id
     
 def add_suspects(score,thres,id,f_id):
-    print("In add suspects")
     query = """
     SELECT add_fid(%s, %s, %s, %s);
     """
@@ -212,7 +201,6 @@ def add_suspects(score,thres,id,f_id):
     print(f"Added fid {f_id} to suspect {id} with score {score}")
 
 def detect_faces(face_list):
-    print("In detect faces")
     if face_list is not None and len(face_list)>0:
         for event in face_list:
             img_url = event["image_url"]
@@ -286,7 +274,6 @@ def process(url, m_url,camera):
         print(f"Got data: {timestamp}")
         face_list = get_faces(data, m_url)
         if face_list and len(face_list) > 0:
-            print(f"Got face list")
             detect_faces(face_list)
         # convert timestamp to integer and add a small delta to avoid fetching same event
         return timestamp
