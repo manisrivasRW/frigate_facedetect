@@ -10,10 +10,32 @@ import numpy as np
 from insightface.app import FaceAnalysis
 from sklearn.metrics.pairwise import cosine_similarity
 from datetime import datetime
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
+import asyncio
+import uvicorn
 from dotenv import load_dotenv
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import math
 
 load_dotenv()
+
+app = FastAPI()
+
+origins = [
+    "http://localhost:3000",
+    "*",  
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 db = os.getenv("PG_DB")
 user = os.getenv("PG_USERNAME")
@@ -89,15 +111,30 @@ print("FaceAnalysis model prepared")
 
 processed_event_ids = set()
 
-def get_json(url):
+def get_json(url,m_url,camera,t=None):
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json() 
         if data is not None and len(data)>0:
+            print(f"{data[0]['start_time']}")
             return data, data[0]['start_time']
         return None, None
     else:
         print("Error:", response.status_code)
+        print("Refreshing Wait for 5 minutes..")
+        time.sleep(5*60)
+        if t is not None:
+            url = f"{m_url}?camera={camera}&limit=20&after={t}"
+            after_time(url,t,m_url,camera)
+        else:
+            post_url = "http://localhost:5000/get-data"
+            payload = {"url": m_url,"camera": camera}
+            try:
+                post_response = requests.post(post_url, json=payload)
+                print("Called /get-data, status:", post_response.status_code)
+            except Exception as e:
+                print("Error calling /get-data:", e)
+
         return None, None
     
 def get_img_url(frame):
@@ -124,9 +161,8 @@ def get_image(url,event_id,box,start_time,end_time,camera):
     print(f"Got Image for event ID: {event_id}")
     return data
 
-def get_faces(data):
+def get_faces(data,snapshot_url):
     face_list = []
-    snapshort_url = "http://162.243.16.206:5000/api/events"
     if data is not None:
         for result in data:
             if result.get('has_snapshot') is True:
@@ -141,7 +177,7 @@ def get_faces(data):
                 if data and data.get('attributes'):
                     if data.get('box') is not None:
                         box = data['box']
-                        faces = get_image(f"{snapshort_url}/{event_id}/snapshot-clean.png",event_id,box,start_time,end_time,camera)
+                        faces = get_image(f"{snapshot_url}/{event_id}/snapshot-clean.png",event_id,box,start_time,end_time,camera)
                         face_list.append(faces)
         return face_list
     else:
@@ -149,6 +185,7 @@ def get_faces(data):
         return None
     
 def save_face(img_url,event_id,camera,start_time,end_time):
+    print("In save face")
     uniq_id = str(uuid.uuid4())[:16]
     f_id = f"{event_id}_{uniq_id}"
 
@@ -165,6 +202,7 @@ def save_face(img_url,event_id,camera,start_time,end_time):
     return f_id
     
 def add_suspects(score,thres,id,f_id):
+    print("In add suspects")
     query = """
     SELECT add_fid(%s, %s, %s, %s);
     """
@@ -174,6 +212,7 @@ def add_suspects(score,thres,id,f_id):
     print(f"Added fid {f_id} to suspect {id} with score {score}")
 
 def detect_faces(face_list):
+    print("In detect faces")
     if face_list is not None and len(face_list)>0:
         for event in face_list:
             img_url = event["image_url"]
@@ -230,48 +269,85 @@ def detect_faces(face_list):
     print("No faces to process")
     return None
 
-def process(url):
-    data,timestamp = get_json(url)
+def update_url_after(url, timestamp):
+    """
+    Update or add the 'after' parameter in the URL.
+    """
+    parts = urlparse(url)
+    query = parse_qs(parts.query)
+    query['after'] = [str(timestamp)]
+    new_query = urlencode(query, doseq=True)
+    return urlunparse(parts._replace(query=new_query))
+
+def process(url, m_url,camera):
+    print("Processing URL:", url)
+    data, timestamp = get_json(url,m_url,camera)
     if data is not None:
-        face_list = get_faces(data)
-        if face_list is not None and len(face_list)>0:
+        print(f"Got data: {timestamp}")
+        face_list = get_faces(data, m_url)
+        if face_list and len(face_list) > 0:
+            print(f"Got face list")
             detect_faces(face_list)
+        # convert timestamp to integer and add a small delta to avoid fetching same event
         return timestamp
     else:
         print("No data to process")
         return None
-    
-def after_time(url,timestamp):
-    url = f"{url}&after={timestamp}"
-    l_timestamp = int(process(url))
-    if l_timestamp is not None:
-        print("Processing After timestamp:", l_timestamp)
-        after_time(url,l_timestamp)
-    else:
-        print("No new data after timestamp")
-        print("Retrying in 1 minute...")
-        time.sleep(60)
-        after_time(url,timestamp)
-    
+
+
+
+def after_time(url, timestamp, m_url, camera):
+    """
+    Continuously fetch data after the given timestamp.
+    """
+    while True:
+        url_with_after = update_url_after(url, timestamp)
+        l_time = process(url_with_after, m_url,camera)
         
-def main():
-    url = "http://162.243.16.206:5000/api/events?camera=mumbaidevi2&label=person"
-    
-    try:  #after=<timestamp>
-        timestamp = int(process(url))
-        print("Initial processing Latest timestamp:", timestamp)
+        if l_time is not None:
+            timestamp = math.ceil(float(l_time))
+            print("Updated timestamp:", timestamp)
+        else:
+            print("No new data, retrying in 1 minute...")
+            time.sleep(60)  # wait 1 minute before retry
+            after_time(url,timestamp,m_url,camera)
+
+async def background_job(base_url: str, m_url: str, camera: str):
+    try:
+        # Initial processing
+        timestamp = process(base_url, m_url, camera)
         if timestamp is None:
             print("No initial data, retrying in 1 minute...")
-            time.sleep(60)
-            main()
+            time.sleep(60)  
+            timestamp = process(base_url, m_url, camera)
+
+        if timestamp is not None:
+            print("Initial timestamp:", timestamp)
+            after_time(base_url, math.ceil(float(timestamp)), m_url, camera)
         else:
-            after_time(url,timestamp)
+            print("No data available after retries.")
+    except Exception as e:
+        print("Background job error:", str(e))
+
+
+@app.post("/get-data")
+async def main(request: Request):
+    try:
+        data = await request.json()
+        m_url = data.get("url")
+        camera = data.get("camera")
+
+        base_url = f"{m_url}?camera={camera}&label=person&limit=20"
+
+        # Launch background task
+        asyncio.create_task(background_job(base_url, m_url, camera))
+
+        # Respond immediately
+        return JSONResponse(
+            content={"status": "started", "message": "Processing has been triggered"},
+            status_code=200
+        )
 
     except Exception as e:
-        print("Error:", str(e))
-        print("Restarting in 3 minutes...")
-        time.sleep(3 * 60)
-        main()
+        raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    main()
