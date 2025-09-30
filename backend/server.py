@@ -68,17 +68,18 @@ def get_faces_by_ids(id):
 
 def get_criminal_record(c_id):
     query = """
-        SELECT id, name, age, police_station,img_url from criminal_records 
+        SELECT id,criminal_id, name, age, address,img_url from nagpur_criminals 
         WHERE id = %s;
     """
     cur.execute(query,(c_id,))
     result = cur.fetchone()
     doc = {
         "criminal_id": result[0],
-        "criminal_name": result[1],
-        "criminal_age": result[2],
-        "criminal_ps": result[3],
-        "criminal_img": result[4]
+        "c_id": result[1],
+        "criminal_name": result[2],
+        "criminal_age": result[3],
+        "criminal_address": result[4],
+        "criminal_img": result[5]
     }
     return doc
 
@@ -89,18 +90,21 @@ async def get_criminals(request: Request):
         threshold = data.get("threshold")/10
         # threshold = threshold*10
         # print(threshold)
-
+        print("threshold")
         if threshold is None:
             raise HTTPException(status_code=400, detail="Threshold is required")
         
         criminals = get_fids_threshold(int(threshold))
+        print("criminals")
         results = []
         for c_id in criminals:
+    
             doc = {
                 "criminal_data": get_criminal_record(c_id),
                 "suspect_list": criminals[c_id]
             }
             results.append(doc)
+        print("result")
         return results
     
     except Exception as e:

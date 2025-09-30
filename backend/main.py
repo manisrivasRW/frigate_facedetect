@@ -38,8 +38,7 @@ def load_embeddings_from_db(json_paths=None):
     if json_paths is None:
         # default: load both
         json_paths = [
-            "Embeddings/good_embeddings.json",
-            "Embeddings/bad_embeddings.json"
+            "Nagpur_embeddings/embeddings.json"
         ]
 
     try:
@@ -60,9 +59,11 @@ def load_embeddings_from_db(json_paths=None):
 
                 info = {
                     "id": record.get("id"),
+                    "criminal_id": record.get("criminal_id"),
                     "name": record.get("name"),
-                    "nickname": record.get("nickname"),
+                    "father_name": record.get("father_name"),
                     "age": record.get("age"),
+                    "address": record.get("address"),
                     "police_station": record.get("police_station"),
                     "crime_and_section": record.get("crime_and_section"),
                     "head_of_crime": record.get("head_of_crime"),
@@ -92,7 +93,7 @@ def get_json(url):
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json() 
-        if data is not None:
+        if data is not None and len(data)>0:
             return data, data[0]['start_time']
         return None, None
     else:
@@ -216,7 +217,7 @@ def detect_faces(face_list):
                     for idx,score in enumerate(sims):
                         if stored_labels[idx]['id'] == 'test_rathu':
                             continue
-                        if score < 0.05:
+                        if score < 0.2:
                             continue
                         print(f"Score: {score:.4f}")
                         thres = int(score*10)
@@ -242,7 +243,7 @@ def process(url):
     
 def after_time(url,timestamp):
     url = f"{url}&after={timestamp}"
-    l_timestamp = process(url)
+    l_timestamp = int(process(url))
     if l_timestamp is not None:
         print("Processing After timestamp:", l_timestamp)
         after_time(url,l_timestamp)
@@ -254,10 +255,10 @@ def after_time(url,timestamp):
     
         
 def main():
-    url = "http://162.243.16.206:5000/api/events?camera=mumbaidevi2&label=person&limit=10"
+    url = "http://162.243.16.206:5000/api/events?camera=mumbaidevi2&label=person"
     
     try:  #after=<timestamp>
-        timestamp = process(url)
+        timestamp = int(process(url))
         print("Initial processing Latest timestamp:", timestamp)
         if timestamp is None:
             print("No initial data, retrying in 1 minute...")
