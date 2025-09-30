@@ -52,3 +52,69 @@ body {
     opacity: 1;
   }
 }
+
+/* Custom range input to ensure the visual track starts at container edge */
+.range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  width: 100%;
+  height: 18px; /* room for thumb */
+  --progress: 0%;
+  --fill: #00d1ff;          /* active fill color */
+  --track: #3a3a3a;         /* base track */
+  --glow: rgba(0, 209, 255, 0.25);
+  --thumb: #00d1ff;         /* thumb color */
+}
+
+.range-input:focus {
+  outline: none;
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+.range-input::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    var(--fill) 0%,
+    var(--fill) var(--progress),
+    var(--track) var(--progress),
+    var(--track) 100%
+  );
+  box-shadow: inset 0 0 10px var(--glow);
+}
+
+.range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--thumb);
+  border: 0;
+  margin-top: -5px; /* centers thumb over 8px track */
+  box-shadow: 0 0 0 2px #0b132b inset;
+}
+
+/* Firefox */
+.range-input::-moz-range-track {
+  height: 8px;
+  background: var(--track);
+  border-radius: 9999px;
+}
+
+.range-input::-moz-range-progress {
+  height: 8px;
+  background: var(--fill);
+  border-radius: 9999px;
+  box-shadow: inset 0 0 10px var(--glow);
+}
+
+.range-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--thumb);
+  border: 0;
+}

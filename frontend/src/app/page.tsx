@@ -6,6 +6,7 @@ import { fetchLogs, type LogItem } from "@/lib/api";
 
 export default function Home() {
   const [threshold, setThreshold] = useState(0.2);
+  const [thresholdActive, setThresholdActive] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState<Record<string, number>>({});
@@ -13,6 +14,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!thresholdActive) return; // do not fetch until user activates slider
     let active = true;
     // Clear current logs to avoid showing stale content while loading
     setLogs([]);
@@ -27,7 +29,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [threshold]);
+  }, [threshold, thresholdActive]);
 
   const filteredLogs = useMemo(() => logs, [logs]);
 
@@ -110,34 +112,61 @@ export default function Home() {
         <div className="mt-4 glass neon-border rounded-xl p-4 md:p-5 max-w-2xl mx-auto">
           <div className="flex items-center gap-4">
             <span className="text-sm text-[#9ad7ff]/80">Threshold</span>
-            <input
-              type="range"
-              min={0.2}
-              max={1}
-              step={0.1}
-              value={threshold}
-              onChange={(e) => {
-                const newValue = parseFloat(e.target.value);
-                // Force exact 0.1 intervals by using step-based calculation
-                const step = 0.1;
+            <div className="relative w-full">
+              <input
+                type="range"
+                min={0.2}
+                max={1}
+                step={0.1}
+                value={threshold}
+                onChange={(e) => {
+                  const newValue = parseFloat(e.target.value);
+                  // Force exact 0.1 intervals by using step-based calculation
+                  const step = 0.1;
+                  const min = 0.2;
+                  const rounded = Math.round((newValue - min) / step) * step + min;
+                  setThreshold(parseFloat(rounded.toFixed(1)));
+                }}
+                onMouseDown={() => setThresholdActive(true)}
+                onTouchStart={() => setThresholdActive(true)}
+                className="range-input cursor-pointer"
+                style={{
+                  // Map 0.2..1 to 0%..100% for the filled track
+                  // progress = (value - min) / (max - min)
+                  // Use CSS var consumed by the track background
+                  // @ts-ignore - CSS var is fine on style prop
+                  ['--progress' as any]: `${thresholdActive ? ((threshold - 0.2) / (1 - 0.2)) * 100 : 0}%`,
+                  ['--fill' as any]: thresholdActive ? '#00d1ff' : '#16324a',
+                  ['--track' as any]: thresholdActive ? '#3a3a3a' : '#1e2733',
+                  ['--glow' as any]: thresholdActive ? 'rgba(0, 209, 255, 0.35)' : 'rgba(0, 209, 255, 0.05)',
+                  ['--thumb' as any]: thresholdActive ? '#00d1ff' : '#6b7280',
+                }}
+              />
+              {thresholdActive && (() => {
                 const min = 0.2;
-                const rounded = Math.round((newValue - min) / step) * step + min;
-                setThreshold(parseFloat(rounded.toFixed(1)));
-              }}
-              className="w-full accent-[#00d1ff] cursor-pointer"
-            />
-            <span className="text-sm tabular-nums text-[#00d1ff] min-w-[2.5rem] text-right">{threshold.toFixed(1)}</span>
-          </div>
-          <div className="mt-2 grid grid-cols-9 text-[10px] text-[#9ad7ff]/60">
-            {Array.from({ length: 9 }, (_, i) => 0.2 + i * 0.1).map((v) => (
-              <button
-                key={v.toFixed(1)}
-                onClick={() => setThreshold(v)}
-                className="text-center hover:text-[#00d1ff] transition-colors cursor-pointer"
-              >
-                {v.toFixed(1)}
-              </button>
-            ))}
+                const max = 1;
+                const percent = ((threshold - min) / (max - min)) * 100;
+                return (
+                  <span
+                    className="absolute -top-6 text-xs tabular-nums text-[#00d1ff] bg-[#0b132b]/80 px-2 py-0.5 rounded-md neon-border"
+                    style={{ left: `${percent}%`, transform: "translateX(-50%)" }}
+                  >
+                    {threshold.toFixed(1)}
+                  </span>
+                );
+              })()}
+              <div className="mt-3 flex justify-between text-[10px] text-[#9ad7ff]/60">
+                {Array.from({ length: 9 }, (_, i) => 0.2 + i * 0.1).map((v) => (
+                  <button
+                    key={v.toFixed(1)}
+                    onClick={() => { setThresholdActive(true); setThreshold(v); }}
+                    className="hover:text-[#00d1ff] transition-colors cursor-pointer"
+                  >
+                    {v.toFixed(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
